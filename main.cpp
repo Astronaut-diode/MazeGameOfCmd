@@ -19,20 +19,15 @@
 #include "map.h"
 
 int main() {
-    std::pair<int, int> res = get_choose();
-    int build_obstacle;
-    std::cout << "输入难度:";
-    std::cin >> build_obstacle;
-    Map map(res.first, res.second, build_obstacle);
-    map.constructor();
-    while(true) {
-        map.move();
-        map.display();
-        if(map.success()) {
-            break;
-        }
+    int width, height;
+    std::cout << "请输入迷宫的宽高，空格隔开(需要为奇数):";
+    std::cin >> height >> width;
+    Maze maze(height, width);
+    maze.display();
+    while(!maze.move()) {
+        maze.display();
     }
-    std::cout << "随意敲击键盘退出界面..." << std::endl;
+    std::cout << "输入任意字符退出程序" << std::endl;
     getch();
     return 0;
 }

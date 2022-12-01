@@ -16,140 +16,201 @@
 #include <cctype>
 #include <windows.h>
 #include <conio.h>
-#include <time.h>
 #include "map.h"
 
-int Map::min_m = 10, Map::min_n = 10, Map::max_m = 30, Map::max_n = 30, Map::build_obstacle = 10;
+// 设置初始大小
+void Maze::set_size(int &height, int &width) {
+    if ((height & 1) == 0) {
+        std::cout << "高度为偶数，自动加1" << std::endl;
+        height += 1;
+    }
+    if ((width & 1) == 0) {
+        std::cout << "宽度为偶数，自动加1" << std::endl;
+        width += 1;
+    }
+    if (height < min_height || height > max_height) {
+        std::cout << "不在合理高度范围内，自定义为" << const_height << std::endl;
+        height = const_height;
+    }
+    if (width < min_width || width > max_width) {
+        std::cout << "不在合理宽度范围内，自定义为" << const_width << std::endl;
+        width = const_width;
+    }
+    this->height = height;
+    this->width = width;
+}
 
-Map::Map(int m, int n, int build_obstacle) {
-    // 如果难度在0-100之间就可以用，否则直接改为10.
-    if (build_obstacle <= 0 || build_obstacle >= 100) {
-        Map::build_obstacle = 10;
+// 使用随机prim算法生成迷宫
+void Maze::random_prim() {
+    // 全部设置为墙
+    for (int i = 0; i < height; ++i) {
+        for (int j = 0; j < width; ++j) {
+            this->maze[i][j] = obstacle_character;
+        }
+    }
+    // 设置宽高为整数，方便后面映射计算。
+    this->width = (this->width - 1) >> 1;
+    this->height = (this->height - 1) >> 1;
+    // 构建初始点
+    birth = std::make_pair(rand() % this->height, rand() % this->width);
+    this->maze[(birth.first << 1) + 1][(birth.second << 1) + 1] = birth_character;
+    // 设定玩家当前的位置。
+    this->hor_pos = (birth.first << 1) + 1;
+    this->ver_pos = (birth.second << 1) + 1;
+    // 开始删除墙壁
+    std::vector<std::pair<int, int>> checklist{birth};
+    while (!checklist.empty()) {
+        int choice = rand() % checklist.size();
+        if (!checkAdjPos(checklist[choice].first, checklist[choice].second, checklist)) {
+            checklist.erase(checklist.begin() + choice);
+            // 每个点都可以拿来当作终点，但是每一个后续节点都会覆盖当前的节点。
+            dest = std::make_pair((checklist[choice].first << 1) + 1, (checklist[choice].second << 1) + 1);
+        }
+    }
+    // 设置终点的标志
+    this->maze[dest.first][dest.second] = dest_character;
+    // 复原原始的宽高
+    this->width = (this->width << 1) + 1;
+    this->height = (this->height << 1) + 1;
+}
+
+// 判断这个点的上下左右的墙壁，随机删除谁。
+bool Maze::checkAdjPos(int x, int y, std::vector<std::pair<int, int>> &checklist) {
+    std::vector<int> directions;
+    // 分别判断上下左右的墙壁是否存在在
+    if (x > 0) {
+        if (this->maze[((x - 1) << 1) + 1][(y << 1) + 1] == obstacle_character) {
+            directions.emplace_back(0);
+        }
+    }
+    if (x < height - 1) {
+        if (this->maze[((x + 1) << 1) + 1][(y << 1) + 1] == obstacle_character) {
+            directions.emplace_back(1);
+        }
+    }
+    if (y > 0) {
+        if (this->maze[(x << 1) + 1][((y - 1) << 1) + 1] == obstacle_character) {
+            directions.emplace_back(2);
+        }
+    }
+    if (y < width - 1) {
+        if (this->maze[(x << 1) + 1][((y + 1) << 1) + 1] == obstacle_character) {
+            directions.emplace_back(3);
+        }
+    }
+    if (directions.size()) {
+        int direction = directions[rand() % directions.size()];
+        switch (direction) {
+            case 0:
+                // 向上的时候
+                this->maze[((x - 1) << 1) + 1][(y << 1) + 1] = road_character;
+                // 这里是(x, y)和(x - 1, y)映射以后中间的夹缝，设定为路
+                this->maze[(((x - 1) << 1) + 1) + 1][(y << 1) + 1] = road_character;
+                checklist.emplace_back(std::make_pair(x - 1, y));
+                break;
+            case 1:
+                // 向下的时候
+                this->maze[((x + 1) << 1) + 1][(y << 1) + 1] = road_character;
+                // 这里是(x, y)和(x + 1, y)映射以后中间的夹缝，设定为路
+                this->maze[(((x + 1) << 1) + 1) - 1][(y << 1) + 1] = road_character;
+                checklist.emplace_back(std::make_pair(x + 1, y));
+                break;
+            case 2:
+                // 向左的时候
+                this->maze[(x << 1) + 1][((y - 1) << 1) + 1] = road_character;
+                // 这里是(x, y)和(x, y - 1)映射以后中间的夹缝，设定为路
+                this->maze[(x << 1) + 1][(((y - 1) << 1) + 1) + 1] = road_character;
+                checklist.emplace_back(std::make_pair(x, y - 1));
+                break;
+            case 3:
+                // 向右的时候
+                this->maze[(x << 1) + 1][((y + 1) << 1) + 1] = road_character;
+                // 这里是(x, y)和(x, y + 1)映射以后中间的夹缝，设定为路
+                this->maze[(x << 1) + 1][(((y + 1) << 1) + 1) - 1] = road_character;
+                checklist.emplace_back(std::make_pair(x, y + 1));
+                break;
+        }
+        return true;
     } else {
-        Map::build_obstacle = build_obstacle;
+        return false;
     }
+}
+
+// 判断是否可以移动，同时判断以下在当前位置，应该显示的字符是什么。
+void Maze::update(int x, int y) {
+    if (0 <= x && x < this->height - 1 && 0 <= y && y <= this->width - 1 && this->maze[x][y] != obstacle_character) {
+        this->maze[hor_pos][ver_pos] = road_character;
+        // 如果重合了，应该显示A。
+        this->maze[(birth.first << 1) + 1][(birth.second << 1) + 1] = birth_character;
+        this->maze[x][y] = now_character;
+        hor_pos = x;
+        ver_pos = y;
+    }
+}
+
+// 构造函数
+Maze::Maze(int height, int width) {
     srand((unsigned) time(NULL));
-    // 保证输入的过小时，使用min,输入的过大时使用max，否则使用原始输入。
-    this->m = std::max(m, min_m);
-    this->n = std::max(n, min_n);
-    this->m = std::min(this->m, max_m);
-    this->n = std::min(this->n, max_n);
-    // 创建m个元素的char指针数组。
-    this->map = new char *[this->m];
-    for (int i = 0; i < this->m; ++i) {
-        this->map[i] = new char[this->n + 1];
-        for (int j = 0; j < this->n; j++) {
-            this->map[i][j] = ' ';
-        }
-        this->map[i][this->n] = '\0';
+    set_size(height, width);
+    maze = new char *[height];
+    for (int i = 0; i < height; ++i) {
+        this->maze[i] = new char[width];
     }
-    // 生成出生点和终点。
-    make_dot(birth);
-    this->map[birth.first][birth.second] = birth_character;
-    make_dot(dest);
-    this->map[dest.first][dest.second] = dest_character;
+    // 随机prim算法生成迷宫。
+    random_prim();
 }
 
-Map::~Map() {
-    // 删除字符串
-    for (int i = 0; i < m; ++i) {
-        delete[] this->map[i];
+//析构函数
+Maze::~Maze() {
+    for (int i = 0; i < this->height; ++i) {
+        delete[] this->maze[i];
     }
-    // 删除字符数组。
-    delete this->map;
-}
-
-// 获取地图的尺寸
-std::pair<int, int> Map::get_size() {
-    std::pair<int, int> res(this->m, this->n);
-    return res;
-}
-
-// 构建地图
-void Map::constructor() {
-    for (int i = 0; i < this->m; ++i) {
-        for (int j = 0; j < this->n; ++j) {
-            if (rand() % 100 < Map::build_obstacle && this->map[i][j] == ' ') {
-                this->map[i][j] = obstacle;
-            }
-        }
-    }
-    this->display();
+    delete[] this->maze;
 }
 
 // 显示地图
-void Map::display() {
+void Maze::display() {
     Sleep(flush_interval);
     system("cls");
-    std::string horizon(this->n + 2, '-');
-    std::cout << horizon << std::endl;
-    for (int i = 0; i < this->m; ++i) {
-        std::cout << "|" << this->map[i] << "|" << std::endl;
+    for (int i = 0; i < this->height; ++i) {
+        for (int j = 0; j < this->width; ++j) {
+            if(this->maze[i][j] == obstacle_character) {
+                std::cout << "\033[31m " << this->maze[i][j] << "\033[0m";
+            } else {
+                std::cout << "\033[0m " << this->maze[i][j] << "\033[0m";
+            }
+        }
+        std::cout << std::endl;
     }
-    std::cout << horizon << std::endl;
-    std::cout << " W " << std::endl;
-    std::cout << "ASD" << std::endl;
-    std::cout << "移动A到Z上去" << std::endl;
+    std::cout << std::endl << std::endl << std::endl << std::endl;
+    std::cout << "WASD移动，从*点移动到@点。" << std::endl;
 }
 
-// 创建出生点和终点
-void Map::make_dot(std::pair<int, int> &dot) {
-    if (rand() % 2 == 0) {   // 选择左右
-        if (rand() % 2 == 0) {   // 选择左
-            dot = std::make_pair(rand() % this->m, 0);
-        } else {
-            dot = std::make_pair(rand() % this->m, this->n - 1);
-        }
-    } else {    // 选择上下
-        if (rand() % 2 == 0) {   // 选择上
-            dot = std::make_pair(0, rand() % this->n);
-        } else {
-            dot = std::make_pair(this->m - 1, rand() % this->n);
-        }
+// 移动角色
+bool Maze::move() {
+    // 判断是否已经获胜，如果获胜，直接返回true用来退出循环。
+    if (hor_pos == dest.first && ver_pos == dest.second) {
+        std::cout << "你已经获取比赛的胜利" << std::endl;
+        return true;
     }
-}
-
-// 移动玩家
-void Map::move() {
-    int forward = getch(), x = birth.first, y = birth.second;
+    int forward = getch(), x = hor_pos, y = ver_pos;
     switch (forward) {
         case 'A':
         case 'a':
-            update_birth(x, y - 1);
+            update(x, y - 1);
             break;
         case 'd':
         case 'D':
-            update_birth(x, y + 1);
+            update(x, y + 1);
             break;
         case 'w':
         case 'W':
-            update_birth(x - 1, y);
+            update(x - 1, y);
             break;
         case 's':
         case 'S':
-            update_birth(x + 1, y);
+            update(x + 1, y);
             break;
     }
+    return false;
 }
-
-// 判断当前位置是否可以走进去，如果可以走进去就更新当前位置。
-void Map::update_birth(int x, int y) {
-    if (0 <= x && x < this->m && 0 <= y && y < this->n && this->map[x][y] != obstacle) {
-        // 先复原原始的位置。
-        this->map[x][y] = birth_character;
-        this->map[birth.first][birth.second] = ' ';
-        birth = std::make_pair(x, y);
-    }
-}
-
-// 获取初始参数
-std::pair<int, int> get_choose() {
-    int m, n;
-    std::cout << "输入迷宫的高和宽(m * n):";
-    std::cin >> m >> n;
-    // 读取输入数字的时候给的回车符号
-    getchar();
-    std::pair<int, int> res{m, n};
-    return res;
-}
-

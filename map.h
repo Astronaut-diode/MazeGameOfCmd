@@ -1,59 +1,60 @@
 #ifndef MAZE_MAP_H
 #define MAZE_MAP_H
 
-class Map {
+class Maze {
 private:
-    // 用来显示的地图
-    char **map;
-    // 代表地图的大小是m * n
-    int m, n;
-    // 默认的最小和最大的宽高
-    static int min_m, min_n, max_m, max_n;
-    // 刷新界面的时间
-    static const int flush_interval = 50;
-    // 生成障碍物的概率。
-    static int build_obstacle;
-    // 块的符号
-    static const char obstacle = 'X';
-    // 出生点
+    // 地图
+    char **maze;
+    // 地图的宽高
+    int width, height;
+    // 默认的宽高以及最高和最小的宽高
+    static const int min_width = 11;
+    static const int max_width = 101;
+    static const int min_height = 11;
+    static const int max_height = 65;
+    static const int const_width = 31;
+    static const int const_height = 21;
+    // 当前点所占的位置
+    int hor_pos, ver_pos;
+    // 当前位置的符号
+    static const char now_character = 'A';
+    // 出生点的位置
     std::pair<int, int> birth;
     // 出生点的符号
-    static const char birth_character = 'A';
-    // 终点
+    static const char birth_character = '*';
+    // 终点的位置
     std::pair<int, int> dest;
-    // 目标点的符号
-    static const char dest_character = 'Z';
+    // 终点的符号
+    static const char dest_character = '@';
+    // 障碍物的符号，直接写成静态常量，反正也不会发生改变
+    static const char obstacle_character = '#';
+    // 刷新时间
+    static const int flush_interval = 300;
+    static const char road_character = ' ';
+
+    // 设置初始的尺寸
+    void set_size(int &width, int &height);
+
+    // 使用随机prim生成地图
+    void random_prim();
+
+    // 判断这个点的上下左右的墙壁，随机删除谁。
+    bool checkAdjPos(int x, int y, std::vector<std::pair<int, int>> &checklist);
+
+    // 更新画面
+    void update(int x, int y);
 public:
     // 构造函数
-    Map(int m = min_m, int n = min_n, int build_obstacle = 10);
+    Maze(int width = const_width, int height = const_height);
 
     // 析构函数
-    ~Map();
-
-    // 获取地图的宽高
-    std::pair<int, int> get_size();
-
-    // 构建地图
-    void constructor();
+    ~Maze();
 
     // 显示地图
     void display();
 
-    // 创建出生点和终点
-    void make_dot(std::pair<int, int> &dot);
-
-    // 更新移动
-    void move();
-
-    // 判断当前位置是否可以走进去，如果可以走进去就更新当前位置。
-    void update_birth(int x, int y);
-
-    // 判断游戏是否已经结束了。
-    bool success() {return birth == dest; };
+    // 移动角色,同时判断是否已经达到终点。
+    bool move();
 };
 
-
-// 获取用户的初始输入
-std::pair<int, int> get_choose();
-
-#endif //MAZE_MAP_H
+#endif
